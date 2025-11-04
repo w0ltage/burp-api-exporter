@@ -28,7 +28,7 @@ public class ApiFrame extends JFrame {
 
     private JTextField collectionNameInput;
     private JTextField folderNameInput;
-    private JComboBox<String> doctypeDropdown;
+    private JComboBox<DocTypeOption> doctypeDropdown;
     private ApiTable tableModel;
 
     PrintWriter stdout;
@@ -100,8 +100,13 @@ public class ApiFrame extends JFrame {
         docTypeLabel.setFont(new Font("Consolas",Font.PLAIN,12));
         docTypeLabel.setBounds(30,120,100,25);
 
-        doctypeDropdown = new JComboBox<>(new String[]{"postman-v2.1","openapi-v3.0","openapi-v3.1"});
-        doctypeDropdown.setBounds(150,120,100,25);
+        DocTypeOption[] docTypes = new DocTypeOption[]{
+                new DocTypeOption("postman-v2.1", "Postman v2.1"),
+                new DocTypeOption("openapi-v3.0", "OpenAPI v3.0 (JSON)"),
+                new DocTypeOption("openapi-v3.1", "OpenAPI v3.1 (JSON)")
+        };
+        doctypeDropdown = new JComboBox<>(docTypes);
+        doctypeDropdown.setBounds(150,120,180,25);
 
         panel.add(docTypeLabel);
         panel.add(doctypeDropdown);
@@ -150,7 +155,14 @@ public class ApiFrame extends JFrame {
                 Generator generator = new Generator(reqSrcList, callbacks, "utf-8", stdout, stderr);
                 try {
                     boolean isSelected = uniqueCheckbox.isSelected();
-                    GenerateResponse resp = generator.generate((String) doctypeDropdown.getSelectedItem(), getCollectionName(),isSelected);
+                    DocTypeOption selectedDocType = (DocTypeOption) doctypeDropdown.getSelectedItem();
+                    if (selectedDocType == null) {
+                        stdout.println("Error: No document type selected");
+                        callbacks.issueAlert("No document type selected");
+                        return;
+                    }
+
+                    GenerateResponse resp = generator.generate(selectedDocType.getId(), getCollectionName(),isSelected);
 
                     // Hata kontrolü
                     if (resp.getStatus() == null || !resp.getStatus()) {
@@ -269,7 +281,8 @@ public class ApiFrame extends JFrame {
     }
 
     public String getSelectedEncoding() {
-        return (String) doctypeDropdown.getSelectedItem();
+        DocTypeOption selected = (DocTypeOption) doctypeDropdown.getSelectedItem();
+        return selected != null ? selected.getId() : null;
     }
 
     public ApiTable getTableModel() {

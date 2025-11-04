@@ -1,5 +1,6 @@
 package api_parser;
 
+import api_parser.docType.IDocType;
 import api_parser.docType.OpenApi30DocType;
 import api_parser.docType.OpenApi31DocType;
 import api_parser.docType.PostmanDocType;
@@ -44,49 +45,38 @@ public class Generator {
             }
 
             // docType kontrolü
-            if (docType.equals("postman-v2.1")) {
-                PostmanDocType postmanDoc = new PostmanDocType();
-
-                // Callback'leri ayarlama
-                postmanDoc.setCallbacks(this.callbacks);
-                postmanDoc.setStdout(this.stdout);
-
-                // Generate çağrısı
-                String result = postmanDoc.generate(this.requestSources,docName);
-                resp.setStatus(true);
-                resp.setMessage(result);
-
-
-            }
-            else if (docType.equals("openapi-v3.0")) {
-                OpenApi30DocType openApiDocType = new OpenApi30DocType();
-                openApiDocType.setCallbacks(this.callbacks);
-                openApiDocType.setStdout(this.stdout);
-
-                String result = openApiDocType.generate(this.requestSources,docName);
-                resp.setStatus(true);
-                resp.setMessage(result);
-            }
-            else if (docType.equals("openapi-v3.1")){
-                OpenApi31DocType openApiDocType = new OpenApi31DocType();
-                openApiDocType.setCallbacks(this.callbacks);
-                openApiDocType.setStdout(this.stdout);
-
-                // Generate çağrısı
-                String result = openApiDocType.generate(this.requestSources,docName);
-                resp.setStatus(true);
-                resp.setMessage(result);
-            }
-            else {
+            IDocType exporter = createDocType(docType);
+            if (exporter == null) {
                 resp.setStatus(false);
                 resp.setMessage("Unsupported docType: " + docType);
+                return resp;
             }
+
+            exporter.setCallbacks(this.callbacks);
+            exporter.setStdout(this.stdout);
+
+            String result = exporter.generate(this.requestSources, docName);
+            resp.setStatus(true);
+            resp.setMessage(result);
         } catch (Exception ex) {
             resp.setStatus(false);
             resp.setMessage("Error occurred: " + ex.getMessage());
         }
 
         return resp;
+    }
+
+    private IDocType createDocType(String docType) {
+        switch (docType) {
+            case "postman-v2.1":
+                return new PostmanDocType();
+            case "openapi-v3.0":
+                return new OpenApi30DocType();
+            case "openapi-v3.1":
+                return new OpenApi31DocType();
+            default:
+                return null;
+        }
     }
 
 

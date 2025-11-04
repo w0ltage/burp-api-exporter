@@ -45,6 +45,7 @@ public abstract class BaseOpenApiDocType implements IDocType {
         // no-op by default
     }
 
+    @Override
     public void setStdout(PrintWriter stdout) {
         this.stdout = stdout;
     }

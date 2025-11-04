@@ -10,8 +10,10 @@ repositories {
 }
 
 dependencies {
-   implementation("net.portswigger.burp.extender:burp-extender-api:+")
-    implementation ("com.google.code.gson:gson:2.8.9")
+    implementation("net.portswigger.burp.extender:burp-extender-api:+")
+    implementation("com.google.code.gson:gson:2.8.9")
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
 }
 
 tasks.test {
