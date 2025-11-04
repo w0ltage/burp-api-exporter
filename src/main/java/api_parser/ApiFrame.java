@@ -13,10 +13,13 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -101,9 +104,9 @@ public class ApiFrame extends JFrame {
         docTypeLabel.setBounds(30,120,100,25);
 
         DocTypeOption[] docTypes = new DocTypeOption[]{
-                new DocTypeOption("postman-v2.1", "Postman v2.1"),
-                new DocTypeOption("openapi-v3.0", "OpenAPI v3.0 (JSON)"),
-                new DocTypeOption("openapi-v3.1", "OpenAPI v3.1 (JSON)")
+                new DocTypeOption("postman-v2.1", "Postman v2.1", ".json"),
+                new DocTypeOption("openapi-v3.0", "OpenAPI v3.0 (JSON)", ".json"),
+                new DocTypeOption("openapi-v3.1", "OpenAPI v3.1 (JSON)", ".json")
         };
         doctypeDropdown = new JComboBox<>(docTypes);
         doctypeDropdown.setBounds(150,120,180,25);
@@ -170,40 +173,38 @@ public class ApiFrame extends JFrame {
                         callbacks.issueAlert(
                                 "An error occurred: " + resp.getMessage());
                     } else {
-                        // Kullanıcıdan dosya yolu seçmesi istenir
-                        JFileChooser fileChooser = new JFileChooser();
-                        fileChooser.setDialogTitle("Select File to Save Generated Output");
-                        int userSelection = fileChooser.showSaveDialog(null);
+                        File outputFile = promptForDestination(selectedDocType, getCollectionName());
+                        if (outputFile == null) {
+                            stdout.println("Export cancelled by user");
+                            return;
+                        }
 
-                        if (userSelection == JFileChooser.APPROVE_OPTION) {
-                            File fileToSave = fileChooser.getSelectedFile();
+                        if (outputFile.exists()) {
+                            int overwriteConfirmation = JOptionPane.showConfirmDialog(
+                                    resolveParentWindow(),
+                                    "File already exists. Do you want to replace it?",
+                                    "File Exists",
+                                    JOptionPane.YES_NO_OPTION,
+                                    JOptionPane.WARNING_MESSAGE
+                            );
 
-                            // Eğer dosya mevcutsa, kullanıcıya üzerine yazmak isteyip istemediği sorulur
-                            if (fileToSave.exists()) {
-                                int overwriteConfirmation = JOptionPane.showConfirmDialog(
-                                        null,
-                                        "File already exists. Do you want to replace it?",
-                                        "File Exists",
-                                        JOptionPane.YES_NO_OPTION,
-                                        JOptionPane.WARNING_MESSAGE
-                                );
-
-                                if (overwriteConfirmation == JOptionPane.NO_OPTION) {
-                                    return; // İşlem iptal edilir
-                                }
+                            if (overwriteConfirmation != JOptionPane.YES_OPTION) {
+                                stdout.println("Export aborted to avoid overwriting existing file");
+                                return;
                             }
+                        }
 
-                            // Dönen string değeri dosyaya yaz
-                            try (FileWriter fileWriter = new FileWriter(fileToSave)) {
-                                fileWriter.write(resp.getMessage());
-                                stdout.println("File saved successfully: " + fileToSave.getAbsolutePath());
-                                // İşlem başarılı mesajı
-                                JOptionPane.showMessageDialog(null, "File saved successfully: " + fileToSave.getAbsolutePath(), "Success", JOptionPane.INFORMATION_MESSAGE);
-                            } catch (IOException ioEx) {
-                                stdout.println("Failed to save file: " + ioEx.getMessage());
-                                callbacks.issueAlert(
-                                        "File save error: " + ioEx.getMessage());
-                            }
+                        try (BufferedWriter writer = Files.newBufferedWriter(outputFile.toPath(), StandardCharsets.UTF_8)) {
+                            writer.write(resp.getMessage());
+                            stdout.println("File saved successfully: " + outputFile.getAbsolutePath());
+                            JOptionPane.showMessageDialog(resolveParentWindow(),
+                                    "File saved successfully: " + outputFile.getAbsolutePath(),
+                                    "Success",
+                                    JOptionPane.INFORMATION_MESSAGE);
+                        } catch (IOException ioEx) {
+                            stdout.println("Failed to save file: " + ioEx.getMessage());
+                            callbacks.issueAlert(
+                                    "File save error: " + ioEx.getMessage());
                         }
                     }
                 } catch (Exception ex) {
@@ -287,5 +288,89 @@ public class ApiFrame extends JFrame {
 
     public ApiTable getTableModel() {
         return this.tableModel;
+    }
+
+    private File promptForDestination(DocTypeOption docType, String collectionName) {
+        String safeName = sanitizeFileName(collectionName);
+        String extension = docType.getDefaultExtension();
+        String defaultFile = extension.isEmpty() ? safeName : safeName + extension;
+
+        FileDialog dialog = new FileDialog(resolveParentFrame(), "Select File to Save Generated Output", FileDialog.SAVE);
+        dialog.setFile(defaultFile);
+        dialog.setVisible(true);
+        try {
+            String directory = dialog.getDirectory();
+            String file = dialog.getFile();
+            if (directory == null || file == null) {
+                return null;
+            }
+
+            File chosen = new File(directory, file);
+            if (!extension.isEmpty() && !chosen.getName().contains(".")) {
+                chosen = new File(chosen.getParentFile(), chosen.getName() + extension);
+            }
+
+            return chosen;
+        } finally {
+            dialog.dispose();
+        }
+    }
+
+    private String sanitizeFileName(String value) {
+        String candidate = (value == null || value.trim().isEmpty()) ? "api-export" : value.trim();
+        return candidate.replaceAll("[\\\\/:*?\"<>|]", "_");
+    }
+
+    private Frame resolveParentFrame() {
+        Frame frame = resolveFrameFromMontoya();
+        if (frame != null) {
+            return frame;
+        }
+        Window window = resolveParentWindow();
+        return window instanceof Frame ? (Frame) window : null;
+    }
+
+    private Window resolveParentWindow() {
+        Window window = SwingUtilities.getWindowAncestor(this.getContentPane());
+        if (window != null) {
+            return window;
+        }
+        for (Frame candidate : Frame.getFrames()) {
+            if (candidate != null && candidate.isVisible()) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private Frame resolveFrameFromMontoya() {
+        if (callbacks == null) {
+            return null;
+        }
+        try {
+            Method montoyaMethod = callbacks.getClass().getMethod("montoyaApi");
+            Object montoya = montoyaMethod.invoke(callbacks);
+            if (montoya == null) {
+                return null;
+            }
+            Method userInterfaceMethod = montoya.getClass().getMethod("userInterface");
+            Object userInterface = userInterfaceMethod.invoke(montoya);
+            if (userInterface == null) {
+                return null;
+            }
+            Method swingUtilsMethod = userInterface.getClass().getMethod("swingUtils");
+            Object swingUtils = swingUtilsMethod.invoke(userInterface);
+            if (swingUtils == null) {
+                return null;
+            }
+            Method suiteFrameMethod = swingUtils.getClass().getMethod("suiteFrame");
+            Object frame = suiteFrameMethod.invoke(swingUtils);
+            if (frame instanceof Frame) {
+                return (Frame) frame;
+            }
+        } catch (Exception ignored) {
+            // Montoya API not available; fall back to Swing heuristics.
+        }
+        return null;
     }
 }
