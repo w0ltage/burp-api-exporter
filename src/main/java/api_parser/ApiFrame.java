@@ -100,7 +100,7 @@ public class ApiFrame extends JFrame {
         docTypeLabel.setFont(new Font("Consolas",Font.PLAIN,12));
         docTypeLabel.setBounds(30,120,100,25);
 
-        doctypeDropdown = new JComboBox<>(new String[]{"postman-v2.1","openapi-v3.1"});
+        doctypeDropdown = new JComboBox<>(new String[]{"postman-v2.1","openapi-v3.0","openapi-v3.1"});
         doctypeDropdown.setBounds(150,120,100,25);
 
         panel.add(docTypeLabel);

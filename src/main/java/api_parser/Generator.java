@@ -1,5 +1,6 @@
 package api_parser;
 
+import api_parser.docType.OpenApi30DocType;
 import api_parser.docType.OpenApi31DocType;
 import api_parser.docType.PostmanDocType;
 import api_parser.model.GenerateResponse;
@@ -56,6 +57,15 @@ public class Generator {
                 resp.setMessage(result);
 
 
+            }
+            else if (docType.equals("openapi-v3.0")) {
+                OpenApi30DocType openApiDocType = new OpenApi30DocType();
+                openApiDocType.setCallbacks(this.callbacks);
+                openApiDocType.setStdout(this.stdout);
+
+                String result = openApiDocType.generate(this.requestSources,docName);
+                resp.setStatus(true);
+                resp.setMessage(result);
             }
             else if (docType.equals("openapi-v3.1")){
                 OpenApi31DocType openApiDocType = new OpenApi31DocType();
