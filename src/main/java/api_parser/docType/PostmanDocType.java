@@ -19,6 +19,7 @@ public class PostmanDocType implements IDocType {
     private IBurpExtenderCallbacks callbacks;
     private PrintWriter stdout;
 
+    @Override
     public void setStdout(PrintWriter stdout) {
         this.stdout = stdout;
     }

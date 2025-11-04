@@ -8,6 +8,7 @@ import burp.IRequestInfo;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +18,10 @@ public interface IDocType {
 
     // Callbacks ayarlama fonksiyonu
     void setCallbacks(IBurpExtenderCallbacks callbacks);
+
+    default void setStdout(PrintWriter stdout) {
+        // no-op by default
+    }
 
 
     // API dokümantasyonunu oluşturma fonksiyonu
